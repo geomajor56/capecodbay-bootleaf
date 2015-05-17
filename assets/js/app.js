@@ -1,4 +1,4 @@
-var map, featureList, boroughSearch = [], theaterSearch = [], stationSearch = [];
+var map, featureList, stationSearch = [], station_num_id, thisStation;
 
 
 $(window).resize(function () {
@@ -17,51 +17,12 @@ $(document).on("mouseover", ".feature-row", function (e) {
 
 $(document).on("mouseout", ".feature-row", clearHighlight);
 
-//$("#about-btn").click(function() {
-//  $("#aboutModal").modal("show");
-//  $(".navbar-collapse.in").collapse("hide");
-//  return false;
-//});
-//
-//$("#full-extent-btn").click(function() {
-//  map.fitBounds(boroughs.getBounds());
-//  $(".navbar-collapse.in").collapse("hide");
-//  return false;
-//});
-//
-//$("#legend-btn").click(function() {
-//  $("#legendModal").modal("show");
-//  $(".navbar-collapse.in").collapse("hide");
-//  return false;
-//});
-//
-//$("#login-btn").click(function() {
-//  $("#loginModal").modal("show");
-//  $(".navbar-collapse.in").collapse("hide");
-//  return false;
-//});
 
 $("#list-btn").click(function () {
     $('#sidebar').toggle();
     map.invalidateSize();
     return false;
 });
-
-//$("#nav-btn").click(function() {
-//  $(".navbar-collapse").collapse("toggle");
-//  return false;
-//});
-//
-//$("#sidebar-toggle-btn").click(function() {
-//  $("#sidebar").toggle();
-//  map.invalidateSize();
-//  return false;
-//});
-//
-//$("#sidebar-hide-btn").click(function() {
-//  $('#sidebar').hide();
-//  map.invalidateSize();
-//});
 
 function sizeLayerControl() {
     $(".leaflet-control-layers").css("max-height", $("#map").height() - 50);
@@ -89,7 +50,7 @@ function syncSidebar() {
     stations.eachLayer(function (layer) {
         if (map.hasLayer(stations)) {
             if (map.getBounds().contains(layer.getLatLng())) {
-                $("#feature-list tbody").append('<tr class="feature-row" id="' + L.stamp(layer) + '" lat="' + layer.getLatLng().lat + '" lng="' + layer.getLatLng().lng + '"><td style="vertical-align: middle;"></td><td class="feature-name">' + layer.feature.properties.sta_name + '</td><td style="vertical-align: middle;"><i class="fa fa-chevron-right pull-right"></i></td></tr>');
+                $("#feature-list tbody").append('<tr class="feature-row" id="' + L.stamp(layer) + '" lat="' + layer.getLatLng().lat + '" lng="' + layer.getLatLng().lng + '"><td style="vertical-align: middle;"></td><td class="feature-name">' + layer.feature.properties.station_name + '</td><td style="vertical-align: middle;"><i class="fa fa-chevron-right pull-right"></i></td></tr>');
             }
         }
     });
@@ -120,33 +81,6 @@ var highlightStyle = {
     radius: 15
 };
 
-var boroughs = L.geoJson(null, {
-    style: function (feature) {
-        return {
-            stroke: false,
-            //color: "black",
-            fill: false,
-            opacity: 1,
-            clickable: false
-        };
-    },
-    onEachFeature: function (feature, layer) {
-        boroughSearch.push({
-            name: layer.feature.properties.BoroName,
-            source: "Boroughs",
-            id: L.stamp(layer),
-            bounds: layer.getBounds()
-        });
-    }
-});
-$.getJSON("data/boroughs.geojson", function (data) {
-    boroughs.addData(data);
-});
-
-
-
-
-
 
 
 var stations = L.geoJson(null, {
@@ -164,23 +98,73 @@ var stations = L.geoJson(null, {
 
     onEachFeature: function (feature, layer) {
         if (feature.properties) {
-            var content = "<table class='table table-striped table-bordered table-condensed'>" + "<tr><th>Station Name</th><td>" + feature.properties.sta_name + "</td></tr>" + "<tr><th>Station Type</th><td>" + feature.properties.sta_type + "</td></tr>" + "<tr><th>Station Id</th><td>" + feature.properties.sta_id + "<table>";
+            var content = "<table class='table table-striped table-bordered table-condensed'>" + "<tr><th>Station Name</th><td>" + feature.properties.station_name + "</td></tr>" + "<tr><th>Station Type</th><td>" + feature.properties.station_type + "</td></tr>" + "<tr><th>Station Id</th><td>" + feature.properties.station_id + "<table>";
             layer.on({
                 click: function (e) {
                     map.setView([layer.getLatLng().lat, layer.getLatLng().lng], 14);
                     map.invalidateSize();
+                    console.log(feature.properties.station_id)
+                    console.log(content);
+                    var thisStation = feature.properties.station_id
+                    var temperature = [], salinity = [], dissolved_oxygen = [], nitrogen = [], phosphates = [], ammonium = [], total_nitrogen = [], total_phosphorus = [], chlorophyll = [], pheophytin = [], turbidity = [];
+
+
+                    $.ajax({
+                        type: "POST",
+                        url: "assets/php/get_station_data.php",
+                        data: {
+                            "station_id": thisStation
+                        },
+                        dataType: 'json',
+                        error: function (xhr, ajaxOptions, thrownError) {
+                            alert(xhr.status);
+                            alert(thrownError);
+                        },
+                        success: function chartParser(data) {
+                            console.log('from success function', thisStation);
+                            var sampleDate, d, sampleYear;
+                            $('#map-content').hide();
+
+                            $('#chart-content').show();
+
+                            for (var i = 0; i < data.length; i++) {
+                                sampleDate = data[i][0];
+                                console.log('sample date: ', sampleDate);
+                                // in milliseconds for Highcharts
+                                d = new Date(data[i][0]);
+                                sampleYear = d.getFullYear();
+                                temperature.push([sampleDate, data[i][1]]);
+                                salinity.push([sampleDate, data[i][2]]);
+                                dissolved_oxygen.push([sampleDate, data[i][3]]);
+                                nitrogen.push([sampleDate, data[i][4]]);
+                                phosphates.push([sampleDate, data[i][5]]);
+                                ammonium.push([sampleDate, data[i][6]]);
+                                total_nitrogen.push([sampleDate, data[i][7]]);
+                                total_phosphorus.push([sampleDate, data[i][8]]);
+                                chlorophyll.push([sampleDate, data[i][9]]);
+                                pheophytin.push([sampleDate, data[i][10]]);
+                                turbidity.push([sampleDate, data[i][11]]);
+                            }
+                            //console.log('temp:', temperature)
+
+
+                        }
+
+                    });
+
+
                     $("#sidebar-right").show()
-                    $("#feature-title").html(feature.properties.sta_name);
-                    $("#feature-info").html(content);
+                    //$("#feature-title").html(feature.properties.station_name);
+                    //$("#feature-info").html(content);
 
                     //$("#featureModal").modal("show");
                     highlight.clearLayers().addLayer(L.circleMarker([feature.geometry.coordinates[1], feature.geometry.coordinates[0]], highlightStyle));
                 }
             });
-            $("#feature-list tbody").append('<tr class="feature-row" id="' + L.stamp(layer) + '" lat="' + layer.getLatLng().lat + '" lng="' + layer.getLatLng().lng + '"><td style="vertical-align: middle;"></td><td class="feature-name">' + layer.feature.properties.sta_name + '</td><td style="vertical-align: middle;"><i class="fa fa-chevron-right pull-right"></i></td></tr>');
+            $("#feature-list tbody").append('<tr class="feature-row" id="' + L.stamp(layer) + '" lat="' + layer.getLatLng().lat + '" lng="' + layer.getLatLng().lng + '"><td style="vertical-align: middle;"></td><td class="feature-name">' + layer.feature.properties.station_name + '</td><td style="vertical-align: middle;"><i class="fa fa-chevron-right pull-right"></i></td></tr>');
             stationSearch.push({
-                name: layer.feature.properties.sta_name,
-                address: layer.feature.properties.sta_id,
+                name: layer.feature.properties.station_name,
+                address: layer.feature.properties.station_id,
                 source: "Stations",
                 id: L.stamp(layer),
                 lat: layer.feature.geometry.coordinates[1],
@@ -189,7 +173,7 @@ var stations = L.geoJson(null, {
         }
     }
 });
-$.getJSON("data/monitor_stations.geojson", function (data) {
+$.getJSON('assets/php/get_stations.php', function (data) {
     stations.addData(data);
     map.addLayer(stations);
 });
@@ -198,7 +182,8 @@ $.getJSON("data/monitor_stations.geojson", function (data) {
 map = L.map("map", {
     zoom: 10,
     center: [41.7672146942102, -70.3509521484375],
-    layers: [Esri_OceanBasemap, boroughs, highlight],
+    //layers: [Esri_OceanBasemap, boroughs, highlight],
+    layers: [Esri_OceanBasemap, highlight],
     zoomControl: false,
     attributionControl: false
 });
@@ -212,10 +197,10 @@ map.on("moveend", function (e) {
 
 
 map.on('zoomend', function () {
-if (map.getZoom() ==10) {
-    $("#sidebar-right").hide();
-    map.invalidateSize();
-}
+    if (map.getZoom() == 10) {
+        $("#sidebar-right").hide();
+        map.invalidateSize();
+    }
 });
 
 /* Clear feature highlight when map is clicked */
@@ -278,7 +263,7 @@ $(document).one("ajaxStop", function () {
     $("#loading").hide();
     sizeLayerControl();
     /* Fit map to boroughs bounds */
-    map.fitBounds(boroughs.getBounds());
+    //map.fitBounds(boroughs.getBounds());
     featureList = new List("features", {valueNames: ["feature-name"]});
     featureList.sort("feature-name", {order: "asc"});
 
@@ -286,7 +271,7 @@ $(document).one("ajaxStop", function () {
     var stationsBH = new Bloodhound({
         name: "Stations",
         datumTokenizer: function (d) {
-            return Bloodhound.tokenizers.whitespace(d.sta_name);
+            return Bloodhound.tokenizers.whitespace(d.station_name);
         },
         queryTokenizer: Bloodhound.tokenizers.whitespace,
         local: stationSearch,
